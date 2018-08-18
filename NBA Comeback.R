@@ -2,6 +2,10 @@ require(rvest)
 require(magrittr)
 require(stringi)
 setwd("~/Downloads/NBA Comeback data")
+
+#Here's an example of the kind of page we'll be scraping from: https://www.basketball-reference.com/boxscores/200106150PHI.html
+#basketball-reference has one for each game. We gotta get the URL for each game from their game list for each season, and scrape that big list of URLs
+
 #Getting list of NBA seasons
 url <- 'https://www.basketball-reference.com/leagues/'
 webpage <- read_html(url)
@@ -35,6 +39,7 @@ for (i in 1:pbpindex) {
     #Will be concatenated to pbpurls with each k-loop
     for (k in 1:length(gamescores)) {
       if (k %% 4 == 0) {
+        #This gets the URL between the quotation marks
         gameurl <- stringi::stri_extract_all_regex(as.character(gamescores[[k]]), '(?<=").*?(?=")')
         pbpurls[length(pbpurls) + 1] = paste("https://www.basketball-reference.com", substr(gameurl, 1, 11), "pbp", substr(gameurl, 11, nchar(gameurl) + 1), sep="")
       }
@@ -123,10 +128,3 @@ start_time <- Sys.time()
 allgamespbp <- do.call(rbind, prebindgames[!is.na(prebindgames)])
 end_time <- Sys.time()
 print(end_time - start_time)
-
-#Whenever a team is down by a certain amount, set deficit = team, and if they make a comeback, mark comeback = team. 
-#We'll do most recent comeback is most important
-
-comebacktable <- data.frame(GameID = character(),
-                            Comeback = character(),
-                            Winner = character())
