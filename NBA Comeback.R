@@ -59,7 +59,7 @@ pbpurls <- pbpurls[,2]
 
 #We're gonna fill this list with select entries from each play-by-play table and then do.call(rbind, prebindgames) to make the full table
 #I'm vectorizing! Creating an empty list and then changing values is apparently way faster than appending
-#6M is a safe number based on there being ~22k games that usually don't go above 150 score changes
+#5M is a safe number based on there being ~22k games that usually don't go above 150 score changes
 prebindgames <- rep(list(NA), 5000000)
 
 #Will keep track of the list index we're replacing at
@@ -80,7 +80,7 @@ for (n in 1:10) {
   pbp <- html_nodes(webpage, '.overthrow table')
   
   #https://www.basketball-reference.com/boxscores/pbp/201803040SAC.html has a random blank cell at 1 second remaining in the fourth!? So we need to do fill = TRUE
-  #This html_table function appears to be the longest step, taknig >2 seconds per loop
+  #This html_table function appears to be the longest step, taking >2 seconds per loop
   #html_table returns a list of all the text between <table> tags. [[1]] gets the actual table
   #Hometeam is column 5
   pbptable <- html_table(pbp, header = FALSE, fill = TRUE)[[1]] 
@@ -96,7 +96,6 @@ for (n in 1:10) {
     #Note: Some players have a hypen in their name! Gonna have to clean this up later
     splitscore <- strsplit(pbptable$X4[i], "-")
     #If it only has length 1, then it didn't have a hyphen. It might mark the start of a new quarter though.
-    #
     if (length(splitscore[[1]]) == 1) {
       if (grepl("^\\w{3} Q", splitscore)) {
         maxtime = maxtime + as.difftime(720, units = "secs")
@@ -110,6 +109,7 @@ for (n in 1:10) {
       if (!all(splitscore[[1]] == scorecheck)) {
         count = count + 1
         scorecheck = splitscore[[1]]
+        #Creating a data.frame in the format we want the final table to be. It's only one row but we'll do a huge rbind at the end
         prebindgames[[count]] = data.frame(Time = maxtime - as.difftime(pbptable$X1[i], format = "%M:%OS"), 
                                             HScore = splitscore[[1]][2], 
                                             AScore = splitscore[[1]][1],
