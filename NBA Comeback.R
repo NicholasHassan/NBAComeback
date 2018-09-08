@@ -68,7 +68,8 @@ testcount <- 0
 
 #Here we go! 15 hours!
 start_time <- Sys.time()
-for (n in 1:10) {
+#Checking for 2017-2018 season first
+for (n in 1:length(pbpurls)) {
   url <- pbpurls[n]
   
   #Random shit just to see progress
@@ -78,9 +79,8 @@ for (n in 1:10) {
   
   webpage <- read_html(url)
   pbp <- html_nodes(webpage, '.overthrow table')
-  
   #https://www.basketball-reference.com/boxscores/pbp/201803040SAC.html has a random blank cell at 1 second remaining in the fourth!? So we need to do fill = TRUE
-  #This html_table function appears to be the longest step, taking >2 seconds per loop
+  #This html_table function appears to be the longest step, taknig >2 seconds per loop
   #html_table returns a list of all the text between <table> tags. [[1]] gets the actual table
   #Hometeam is column 5
   pbptable <- html_table(pbp, header = FALSE, fill = TRUE)[[1]] 
