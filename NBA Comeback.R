@@ -1,6 +1,7 @@
 require(rvest)
 require(magrittr)
 require(stringi)
+require(data.table)
 setwd("~/Downloads/NBA Comeback data")
 
 #Here's an example of the kind of page we'll be scraping from: https://www.basketball-reference.com/boxscores/200106150PHI.html
@@ -27,9 +28,9 @@ for (i in 1:pbpindex) {
     seasonurl = paste("https://www.basketball-reference.com", year, "_games-", months[j], ".html", sep="")
     #Some seasons don't have games in certain months, so you get an error unless run it in a tryCatch
     monthgames <- tryCatch(read_html(seasonurl),
-             error = function(e) {
-               e #One day put some good error handling here
-             })
+                           error = function(e) {
+                             e #One day put some good error handling here
+                           })
     if (inherits(monthgames, "error")) {
       errors[nrow(errors) + 1, 1] = as.character(monthgames)
       errors[nrow(errors), 2] = seasonurl
@@ -61,6 +62,13 @@ pbpurls <- pbpurls[,2]
 #I'm vectorizing! Creating an empty list and then changing values is apparently way faster than appending
 #5M is a safe number based on there being ~22k games that usually don't go above 150 score changes
 prebindgames <- rep(list(NA), 5000000)
+allgamespbp <- data.frame(Time = double(5000000),
+                          HScore = numeric(5000000),
+                          AScore = numeric(5000000),
+                          HTeam = character(5000000),
+                          ATeam = character(5000000),
+                          GameID = character(5000000),
+                          stringsAsFactors = FALSE)
 
 #Will keep track of the list index we're replacing at
 count <- 0
@@ -69,7 +77,7 @@ testcount <- 0
 #Here we go! 15 hours!
 start_time <- Sys.time()
 #Checking for 2017-2018 season first
-for (n in 1:length(pbpurls)) {
+for (n in 1:2621) {
   url <- pbpurls[n]
   
   #Random shit just to see progress
@@ -83,14 +91,14 @@ for (n in 1:length(pbpurls)) {
   #This html_table function appears to be the longest step, taknig >2 seconds per loop
   #html_table returns a list of all the text between <table> tags. [[1]] gets the actual table
   #Hometeam is column 5
-  pbptable <- html_table(pbp, header = FALSE, fill = TRUE)[[1]] 
+  pbptable <- html_table(pbp, header = FALSE, fill = TRUE)[[1]]
   
   #We're only going to record an entry if someone scores, otherwise we'll get repeats of different times with the same score
   scorecheck <- c("", "")
   
   #Time resets to 12:00 after every quarter, maxtime will be used to keep track of what quarter it is
   maxtime = as.difftime(0, units = "secs")
-
+  
   for (i in 1:nrow(pbptable)) {
     #Score is kept in "score-score" format in column 4, so we split by "-" to get each team's score
     #Note: Some players have a hypen in their name! Gonna have to clean this up later
@@ -105,26 +113,31 @@ for (n in 1:length(pbpurls)) {
       }
     }
     else {
-      #Checks if the score is the same as the previous one
-      if (!all(splitscore[[1]] == scorecheck)) {
-        count = count + 1
-        scorecheck = splitscore[[1]]
-        #Creating a data.frame in the format we want the final table to be. It's only one row but we'll do a huge rbind at the end
-        prebindgames[[count]] = data.frame(Time = maxtime - as.difftime(pbptable$X1[i], format = "%M:%OS"), 
-                                            HScore = splitscore[[1]][2], 
-                                            AScore = splitscore[[1]][1],
-                                            HTeam = pbptable$X6[2],
-                                            ATeam = pbptable$X2[2],
-                                            GameID = substr(url, 52, 63))
-      }
+      #Checks that it's only numbers - Players with hyphens in their names used to get caught in this
+      if (all(grepl('[0-9]', splitscore[[1]]))) {
+        #Checks if the score is the same as the previous one
+        if (!all(splitscore[[1]] == scorecheck)) {
+          count = count + 1
+          scorecheck = splitscore[[1]]
+          #Creating a data.frame in the format we want the final table to be. It's only one row but we'll do a huge rbind at the end
+          prebindgames[[count]] = data.frame(Time = maxtime - as.difftime(pbptable$X1[i], format = "%M:%OS"), 
+                                           HScore = scorecheck[2], 
+                                           AScore = scorecheck[1],
+                                           HTeam = pbptable$X6[2],
+                                           ATeam = pbptable$X2[2],
+                                           GameID = substr(url, 52, 63),
+                                           stringsAsFactors = FALSE)
+        }
+      }  
     }
   }
 }
 end_time <- Sys.time()
-print(end_time - start_time)
+first <- (end_time - start_time)
 
 #Binding all the list entries from prebindgames into one data frame
+
 start_time <- Sys.time()
-allgamespbp <- do.call(rbind, prebindgames[!is.na(prebindgames)])
+allgamespbp <- rbindlist(prebindgames[!is.na(prebindgames)])
 end_time <- Sys.time()
-print(end_time - start_time)
+second <- (end_time - start_time)
